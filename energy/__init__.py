@@ -1,6 +1,11 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 import math as math
-
+import os, sys
+nb_dir = os.path.split(os.getcwd())[0]
+if nb_dir not in sys.path:
+    sys.path.append(nb_dir)
+from energy.parabola import *
 
 # По координатам 4-х точек рассчитывается косинус диэдрального угла, ими образованного
 def dihedral(v1, v2, v3, v4):
@@ -220,7 +225,7 @@ def coef_nb(atoms, num, nghbc):
     for enj in range(len(E)):
         if math.isnan(E[enj]):
             E[enj] = 0
-    print("Coefs: ", E)
+    # print("Coefs: ", E)
     return E * 1389.38757
 
     #print(E_angle(atoms, angles))

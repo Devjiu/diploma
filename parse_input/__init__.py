@@ -1,4 +1,9 @@
-import os
+# -*- coding: utf-8 -*-
+import os, sys
+
+nb_dir = os.path.split(os.getcwd())[0]
+if nb_dir not in sys.path:
+    sys.path.append(nb_dir)
 
 
 # Функция переводит считываемый .txt файл (аргумент str)
@@ -6,10 +11,11 @@ import os
 # (обект типа list); аргумент m отвечает за то,
 # сколько в начале идет переменных int-типа; аргумент M был введен,
 # чтобы не считывать не нужную информацию
-def rd(name_of_file, m=100, M=100) -> list:
-    def path_to_resources(filename) -> str:
-        script_dir = os.getcwd()
-        abs_file_path = os.path.abspath(os.path.join(script_dir, "data", name_of_file))
+def rd(name_of_file, m=100, M=100):
+    def path_to_resources(filename):
+        script_dir = os.path.split(os.getcwd())
+        # print(script_dir)
+        abs_file_path = os.path.abspath(os.path.join(script_dir[0], "data", name_of_file))
         return abs_file_path
     absolute_path = path_to_resources(name_of_file)
     with open(absolute_path) as f:
