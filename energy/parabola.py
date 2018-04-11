@@ -61,7 +61,7 @@ def suppose_parabola(parabola_arg, candidates):
     # print("Minimum of parabola: ", parabola_min_arg, " Energy: ", E_new)
     parab_minimum = namedtuple("parab_minimum", ["E", "arg", "grad_0", "grad_1", "grad_2"])
     
-    print("Calculated coefs: \n\ta = ", parabola_coefficients['a'], "\n\tb = ", parabola_coefficients['b'], "\n\tc = ", parabola_coefficients['c'])
+    #print("Calculated coefs: \n\ta = ", parabola_coefficients['a'], "\n\tb = ", parabola_coefficients['b'], "\n\tc = ", parabola_coefficients['c'])
     grad_0 = 2 * parabola_coefficients['a'] * parabola_arg[0] + parabola_coefficients['b']
     grad_1 = 2 * parabola_coefficients['a'] * parabola_arg[1] + parabola_coefficients['b']
     grad_2 = 2 * parabola_coefficients['a'] * parabola_arg[2] + parabola_coefficients['b']
