@@ -2,10 +2,12 @@
 import numpy as np
 import math as math
 import os, sys
+from collections import namedtuple
 nb_dir = os.path.split(os.getcwd())[0]
 if nb_dir not in sys.path:
     sys.path.append(nb_dir)
 from energy.parabola import *
+from energy.grad_energy import *
 
 # По координатам 4-х точек рассчитывается косинус диэдрального угла, ими образованного
 def dihedral(v1, v2, v3, v4):
@@ -17,9 +19,9 @@ def dihedral(v1, v2, v3, v4):
     vm1 = v1 - vm
     vm4 = v4 - vm
     v23 = v3 - v2
-    sp1 = vm1 - v23 * (vm1.dot(v23) / v23.dot(v23))
-    sp2 = vm4 - v23 * (vm4.dot(v23) / v23.dot(v23))
-    cos = sp1.dot(sp2) / (np.linalg.norm(sp1) * np.linalg.norm(sp2))
+    sp1 = vm1 - v23 * (np.dot(vm1, v23) / np.dot(v23, v23))
+    sp2 = vm4 - v23 * (np.dot(vm4, v23) / np.dot(v23, v23))
+    cos = np.dot(sp1, sp2) / (np.linalg.norm(sp1) * np.linalg.norm(sp2))
     return cos
 
 
@@ -27,20 +29,20 @@ def dihedral(v1, v2, v3, v4):
 def angle(v1, v2, v3):
     vv1 = np.array(v1) - np.array(v2)
     vv2 = np.array(v3) - np.array(v2)
-    cos = vv1.dot(vv2) / (np.linalg.norm(vv1) * np.linalg.norm(vv2))
+    cos = np.dot(vv1, vv2) / (np.linalg.norm(vv1) * np.linalg.norm(vv2))
     acos = np.arccos(cos)
     return acos
 
 
 # Рассчитываются константы f_ij в E_{nonbonded}
 def f_ij(neighbours, two_bonds_neigh, three_bonds_neigh, i, j):
-    for idx in neighbours[i][1:]:
+    for idx in neighbours[i]:
         if idx == j:
             return 0
-    for idx in two_bonds_neigh[i][1:]:
+    for idx in two_bonds_neigh[i]:
         if idx == j:
             return 0
-    for idx in three_bonds_neigh[i][1:]:
+    for idx in three_bonds_neigh[i]:
         if idx == j:
             return 0.5
     return 1
@@ -70,9 +72,12 @@ def E_angle(atoms, angles, num, nghb_a):
     # N = len(angles)
     E = 0
     for k in nghb_a:  # range(0,N):
-        # if num in angles[k][0:3]:
         E = E + angles[k][3] * pow(
-            angle(atoms[angles[k][0]][1:4], atoms[angles[k][1]][1:4], atoms[angles[k][2]][1:4]) - angles[k][4], 2)
+            angle(atoms[angles[k][0]][1:4], 
+                  atoms[angles[k][1]][1:4], 
+                  atoms[angles[k][2]][1:4]
+                 ) - angles[k][4],
+            2)
     return E * 4.184
 
 
@@ -104,21 +109,6 @@ def E_elst(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num):
     return E * 1389.38757
 
 
-def E_elst_m(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num, nghb_nb):
-    # N = len(atoms)
-    E = 0
-    i = num
-    for j in nghb_nb:  # range(0,N):
-        if j != i:
-            f = f_ij(neighbours, two_bonds_neigh, three_bonds_neigh, i, j)
-            if f == 0:
-                continue
-            else:
-                r = np.array(atoms[i][1:4]) - np.array(atoms[j][1:4])
-                E = E + f * atoms[i][6] * atoms[j][6] / np.linalg.norm(r)
-    return E * 1389.38757
-
-
 # Для получения формулы из Википедии https://en.wikipedia.org/wiki/OPLS:
 # Раскрыть скобки и подставить
 # A = eps * (sig ^ 6)
@@ -130,7 +120,8 @@ def E_vdw(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num):
     N = len(atoms)
     E = 0
     i = num
-    for j in range(0, N):
+    #for j in range(0, N):
+    for j in range(i + 1, N):
         if j != i:
             f = f_ij(neighbours, two_bonds_neigh, three_bonds_neigh, i, j)
             if f == 0:
@@ -144,38 +135,15 @@ def E_vdw(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num):
     return E * 4 * 4.184
 
 
-def E_vdw_m(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num, nghb_nb):
-    # N = len(atoms)
-    E = 0
-    i = num
-    for j in nghb_nb:  # range(0,N):
-        if j != i:
-            f = f_ij(neighbours, two_bonds_neigh, three_bonds_neigh, i, j)
-            if f == 0:
-                continue
-            else:
-                eps = math.sqrt(atoms[i][5] * atoms[j][5])
-                sig = atoms[i][4] * atoms[j][4]
-                dist = np.linalg.norm(np.array(atoms[i][1:4]) - np.array(atoms[j][1:4]))
-                sigSqDivR = (sig / dist ** 2) ** 3
-                E = E + f * eps * sigSqDivR * (sigSqDivR - 1)
-    return E * 4 * 4.184
-
-
-def E(atoms, dihedrals, angles, bonds, neighbours, two_bonds_neigh, three_bonds_neigh, num, nghb_d, nghb_a, nghb_b, nghb_nb, full=True):
-    if full:
-        E = E_dihedral(atoms, dihedrals, num, nghb_d) + \
-            E_angle(atoms, angles, num, nghb_a) + \
-            E_bonds(atoms, bonds, num, nghb_b) + \
-            E_elst(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num) + \
-            E_vdw(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num)
-    else:
-        E = E_dihedral(atoms, dihedrals, num, nghb_d) + \
-            E_angle(atoms, angles, num, nghb_a) + \
-            E_bonds(atoms, bonds, num, nghb_b) + \
-            E_elst_m(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num, nghb_nb) + \
-            E_vdw_m(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num, nghb_nb)
-    return E
+def E(atoms, dihedrals, angles, bonds, neighbours, two_bonds_neigh, three_bonds_neigh, num, nghb_d, nghb_a, nghb_b, nghb_nb):
+    eng = namedtuple("eng", ["E", "dih", "ang", "bond", "elst", "vdw"])
+    E_dih = E_dihedral(atoms, dihedrals, num, nghb_d)
+    E_ang = E_angle(atoms, angles, num, nghb_a)
+    E_bond = E_bonds(atoms, bonds, num, nghb_b)
+    E_elst_ = E_elst(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num)
+    E_vdw_ = E_vdw(atoms, neighbours, two_bonds_neigh, three_bonds_neigh, num)
+    E = E_dih + E_ang + E_bond + E_elst_ + E_vdw_
+    return eng(E, E_dih, E_ang, E_bond, E_elst_, E_vdw_)
 
 
 def nghb_dihedrals(dihedrals, num):
@@ -225,9 +193,4 @@ def coef_nb(atoms, num, nghbc):
     for enj in range(len(E)):
         if math.isnan(E[enj]):
             E[enj] = 0
-    # print("Coefs: ", E)
     return E * 1389.38757
-
-    #print(E_angle(atoms, angles))
-    #print(E_dihedral(atoms, dihedrals,3))
-    #print(E(atoms, dihedrals, angles, bonds, neighbours, two_bonds_neigh, three_bonds_neigh,3))
